@@ -8,7 +8,7 @@ import urllib.parse
 st.set_page_config(page_title="Collectibles Sniper Engine", page_icon="🕹️", layout="wide")
 
 # =====================================================================
-# 🔬 CORE DATA ENGINE FUNCTIONS (UPDATED FOR ANTI-HANG/BLOCK BYPASS)
+# 🔬 CORE DATA ENGINE FUNCTIONS
 # =====================================================================
 
 def get_live_pricecharting_data(game_title):
@@ -17,7 +17,6 @@ def get_live_pricecharting_data(game_title):
     encoded_query = urllib.parse.quote(clean_query)
     search_url = f"https://www.pricecharting.com/search-products?type=prices&q={encoded_query}"
     
-    # 🔥 DESKTOP BROWSER EMULATION HEADERS: Prevents cloud platform firewall blocks
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -26,7 +25,6 @@ def get_live_pricecharting_data(game_title):
     }
     
     try:
-        # Strict 5-second connection ceiling to prevent infinite hanging
         response = requests.get(search_url, headers=headers, timeout=5)
         if response.status_code != 200:
             return None
@@ -74,10 +72,14 @@ def get_live_pricecharting_data(game_title):
 
 
 def search_ebay_deals(query, max_price):
-    """Combs eBay RSS feed for newly listed Buy It Now items under the target price."""
-    encoded_query = urllib.parse.quote(query)
-    # _sop=10 (Newly Listed), _lh=1 (Buy It Now Only), _rss=1 (RSS Feed format)
-    rss_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_query}&_sop=10&_lh=1&_udhi={max_price}&_rss=1"
+    """Combs eBay RSS feed for Buy It Now items sorted strictly by Lowest Price + Shipping."""
+    clean_query = query.strip()
+    encoded_query = urllib.parse.quote(clean_query)
+    
+    # 🎯 THE DEEP VALUE OPTIMIZATION: 
+    # _sop=15 -> Sorts by Price + Shipping: Lowest First.
+    # _udlo=2  -> Sets a $2.00 minimum boundary floor to strip away filler/junk accessories.
+    rss_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_query}&_sop=15&_lh=1&_udlo=2&_udhi={max_price}&_rss=1"
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
@@ -104,7 +106,8 @@ def search_ebay_deals(query, max_price):
                 except:
                     pass
             
-            if 0 < price <= max_price:
+            # Enforce the strict pricing Sweet Spot boundary check
+            if 2.00 <= price <= max_price:
                 listings.append({
                     "Title": title,
                     "Price": f"${price:.2f}",
@@ -125,7 +128,7 @@ st.markdown("---")
 
 # --- STEP 1: PRICECHARTING VALUATION LOOKUP ---
 st.markdown("### 🔍 Step 1: Live Market Valuation")
-search_input = st.text_input("Enter Game Title / Console name:", placeholder="e.g., Mario Kart Double Dash Gamecube")
+search_input = st.text_input("Enter Game Title / Console name:", placeholder="e.g., Smash Bros Melee Gamecube")
 
 # UI Logic States
 if "market_prices" not in st.session_state:
@@ -148,7 +151,6 @@ if search_input and search_input != st.session_state.last_search:
         st.session_state.last_search = search_input
 
 # --- BACKUP OVERRIDE CONTAINER ---
-# If cloud platform is completely blocked by firewall, open up custom variable slots
 if st.session_state.manual_override:
     st.warning("⚠️ Live Automation Check Blocked. PriceCharting firewall intercepted the server. Shifting to Manual Vault Override mode:")
     m_loose = st.number_input("Enter Loose Market Value ($)", min_value=0.0, value=20.0)
@@ -156,7 +158,7 @@ if st.session_state.manual_override:
     m_new = st.number_input("Enter New Market Value ($)", min_value=0.0, value=100.0)
     st.session_state.market_prices = {"Loose": m_loose, "CIB": m_cib, "New": m_new}
 
-# Display calculation layers if data exists (Automatic or Manual)
+# Display calculation layers if data exists
 if st.session_state.market_prices:
     prices = st.session_state.market_prices
     
@@ -210,15 +212,15 @@ if st.session_state.market_prices:
     st.markdown("---")
     
     # --- STEP 3: AUTOMATED EBAY LIVE SNIPER ENGINE ---
-    st.markdown("### 🎯 Step 3: Run Live eBay Valuation Sniper")
-    st.write(f"Scans active 'Buy It Now' listings for items matching your exact configuration under the **${suggested_buy_price:.2f}** limit threshold.")
+    st.markdown("### 🎯 Step 3: Run Live Lowest-Price eBay Sniper")
+    st.write(f"Scans active 'Buy It Now' listings sorted by **Lowest Price + Shipping** under your maximum **${suggested_buy_price:.2f}** margin floor.")
     
-    if st.button("🚀 Execute Live Deal Scan"):
-        with st.spinner("Combing incoming XML data pipeline channels..."):
+    if st.button("🚀 Execute Lowest-Price Scan"):
+        with st.spinner("Sweeping market channels for bottom-tier prices..."):
             deals = search_ebay_deals(search_input, suggested_buy_price)
             
             if deals:
-                st.success(f"🎯 Found {len(deals)} listings meeting your target purchase threshold!")
+                st.success(f"🎯 Found {len(deals)} listings matching your target floor, ranked cheapest first!")
                 for deal in deals:
                     with st.container():
                         d_col1, d_col2 = st.columns([4, 1])
@@ -227,7 +229,7 @@ if st.session_state.market_prices:
                         st.markdown(f"[⚡ Instantly Open and Purchase Listing on eBay]({deal['Link']})")
                         st.markdown("---")
             else:
-                st.warning("No active listings found under your current target buy floor right now. Try expanding your target search term or check back later!")
+                st.warning("No active items found under your margin target right now. Try lowering your Target Sourcing Discount percentage to widen the search pool!")
 
 elif search_input:
     st.info("Waiting for data string execution. If this hangs, verify spelling or append the specific console family to the input field.")
